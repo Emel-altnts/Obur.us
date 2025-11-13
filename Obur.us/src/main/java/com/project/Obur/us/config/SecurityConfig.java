@@ -1,6 +1,6 @@
 package com.project.Obur.us.config;
 
-import com.obur.backend.security.JwtAuthenticationFilter;
+import com.project.Obur.us.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

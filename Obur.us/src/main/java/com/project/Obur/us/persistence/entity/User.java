@@ -1,55 +1,70 @@
 package com.project.Obur.us.persistence.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+
 import java.util.Collection;
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "users")
-@Getter
-@Setter
-public class User implements UserDetails{
+public class User implements UserDetails {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name;
-
-    @Column(unique = true, nullable = false)
+    private String firstName;
+    private String lastName;
     private String email;
-
-    // Güvenlik için şifre hash'lenerek saklanmalıdır (Spring Security).
     private String password;
 
-    // İlişki: Bir kullanıcı birden çok yorum yapabilir.
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<Review> reviews;
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+    // UserDetails interface metodları
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Obur.us'ta basit bir ROLE_USER yetkisi döndürüyoruz.
-        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+        return List.of(new SimpleGrantedAuthority(role.name()));
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
     }
 
     @Override
     public String getUsername() {
-        return email; // JWT için e-posta kullanılır.
+        return email; // Email'i username olarak kullanıyoruz
     }
 
     @Override
-    public boolean isAccountNonExpired() { return true; }
+    public boolean isAccountNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isAccountNonLocked() { return true; }
+    public boolean isAccountNonLocked() {
+        return true;
+    }
 
     @Override
-    public boolean isCredentialsNonExpired() { return true; }
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
 
     @Override
-    public boolean isEnabled() { return true; }
-
-    // Getter ve Setter'lar buraya eklenmeli
+    public boolean isEnabled() {
+        return true;
+    }
 }
