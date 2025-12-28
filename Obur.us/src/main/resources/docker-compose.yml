@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    container_name: obur-postgres
+    environment:
+      POSTGRES_DB: obur_db
+      POSTGRES_USER: obur_user
+      POSTGRES_PASSWORD: obur_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - obur-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obur_user -d obur_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: obur-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - obur-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: obur-api
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/obur_db
+      SPRING_DATASOURCE_USERNAME: obur_user
+      SPRING_DATASOURCE_PASSWORD: obur_password
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - obur-network
+    restart: unless-stopped
+
+  recommender:
+    build:
+      context: ./recommender
+      dockerfile: Dockerfile
+    container_name: obur-recommender
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://obur_user:obur_password@db:5432/obur_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - obur-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  obur-network:
+    driver: bridge

@@ -1,70 +1,64 @@
 package com.project.Obur.us.persistence.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.util.Collection;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "users")
-public class User implements UserDetails {
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String firstName;
-    private String lastName;
+    @NotBlank(message = "Name is required")
+    @Column(nullable = false)
+    private String name;
+
+    @Email(message = "Invalid email format")
+    @NotBlank(message = "Email is required")
+    @Column(nullable = false, unique = true)
     private String email;
+
+    @NotBlank(message = "Password is required")
+    @Column(nullable = false)
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    private Role role;
+    @Column(name = "phone_number")
+    private String phoneNumber;
 
-    // UserDetails interface metodları
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role.name()));
-    }
+    @Column(name = "profile_image_url")
+    private String profileImageUrl;
 
-    @Override
-    public String getPassword() {
-        return password;
-    }
+    @Column(name = "is_active")
+    private Boolean isActive = true;
 
-    @Override
-    public String getUsername() {
-        return email; // Email'i username olarak kullanıyoruz
-    }
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
+    @LastModifiedDate
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Review> reviews = new ArrayList<>();
 
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return true;
-    }
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserPreference> preferences = new ArrayList<>();
 }
