@@ -2,9 +2,9 @@ package com.project.Obur.us.model.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
+import org.hibernate.annotations.CreationTimestamp;
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "users")
@@ -23,13 +23,9 @@ public class User implements Serializable {
     private String email;
 
     @Column(name = "hashed_password", nullable = false)
-    private byte[] hashedPassword;
+    private String hashedPassword; // BCrypt hashlenmiş String olarak tutulur
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private OffsetDateTime createdAt; // SQL'deki TIMESTAMPTZ karşılığı
 }
