@@ -1,47 +1,28 @@
 package com.project.Obur.us.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
-
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
-        ErrorResponse error = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
-                "Bad Request",
-                ex.getMessage()
-        );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-    }
-
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentialsException(BadCredentialsException ex) {
-        ErrorResponse error = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.UNAUTHORIZED.value(),
-                "Unauthorized",
-                "Invalid email or password"
-        );
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
-    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(
-            MethodArgumentNotValidException ex) {
+            MethodArgumentNotValidException ex
+    ) {
         Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach((error) -> {
+        ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
             errors.put(fieldName, errorMessage);
@@ -53,40 +34,65 @@ public class GlobalExceptionHandler {
         response.put("error", "Validation Failed");
         response.put("errors", errors);
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex
+    ) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.BAD_REQUEST.value());
+        response.put("error", "Invalid parameter type");
+        response.put("message", String.format("Parameter '%s' should be of type %s",
+                ex.getName(), ex.getRequiredType().getSimpleName()));
+
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(
+            IllegalArgumentException ex
+    ) {
+        log.error("Illegal argument: ", ex);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.BAD_REQUEST.value());
+        response.put("error", "Bad Request");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, Object>> handleRuntimeException(
+            RuntimeException ex
+    ) {
+        log.error("Runtime exception: ", ex);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        response.put("error", "Internal Server Error");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.internalServerError().body(response);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
-        ErrorResponse error = new ErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Internal Server Error",
-                "An unexpected error occurred"
-        );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+    public ResponseEntity<Map<String, Object>> handleGenericException(
+            Exception ex
+    ) {
+        log.error("Unexpected error: ", ex);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        response.put("error", "Internal Server Error");
+        response.put("message", "An unexpected error occurred");
+
+        return ResponseEntity.internalServerError().body(response);
     }
-}
-
-class ErrorResponse {
-    private LocalDateTime timestamp;
-    private int status;
-    private String error;
-    private String message;
-
-    public ErrorResponse(LocalDateTime timestamp, int status, String error, String message) {
-        this.timestamp = timestamp;
-        this.status = status;
-        this.error = error;
-        this.message = message;
-    }
-
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
-    public int getStatus() { return status; }
-    public void setStatus(int status) { this.status = status; }
-    public String getError() { return error; }
-    public void setError(String error) { this.error = error; }
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
 }

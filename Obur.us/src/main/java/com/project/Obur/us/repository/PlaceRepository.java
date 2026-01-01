@@ -1,7 +1,6 @@
 package com.project.Obur.us.repository;
 
-import com.project.Obur.us.persistence.entity.Place;
-import org.locationtech.jts.geom.Point;
+import com.project.Obur.us.model.entity.Place;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,36 +11,66 @@ import java.util.List;
 @Repository
 public interface PlaceRepository extends JpaRepository<Place, Long> {
 
-    List<Place> findByIsActiveTrueOrderByAverageRatingDesc();
-
-    List<Place> findByCuisineAndIsActiveTrue(String cuisine);
-
-    List<Place> findByPriceRangeAndIsActiveTrue(String priceRange);
-
-    @Query(value = "SELECT p.* FROM places p " +
-            "WHERE p.is_active = true " +
-            "AND ST_DWithin(p.location_geo, :location, :radiusMeters) " +
-            "ORDER BY ST_Distance(p.location_geo, :location)",
-            nativeQuery = true)
-    List<Place> findNearbyPlaces(
-            @Param("location") Point location,
-            @Param("radiusMeters") double radiusMeters
+    /**
+     * Find places within a radius (in meters) from a given point
+     * Returns places ordered by distance
+     */
+    @Query(value = """
+        SELECT p.id, p.name, p.address, p.categories, p.rating_avg, p.rating_count, p.source,
+               ST_Distance(
+                   p.location_geo,
+                   ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+               ) AS distance_m,
+               ST_Y(p.location_geo::geometry) AS lat,
+               ST_X(p.location_geo::geometry) AS lng
+        FROM places p
+        WHERE ST_DWithin(
+            p.location_geo,
+            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+            :radius
+        )
+        ORDER BY distance_m ASC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<Object[]> findNearbyPlaces(
+            @Param("lng") Double lng,
+            @Param("lat") Double lat,
+            @Param("radius") Double radius,
+            @Param("limit") Integer limit
     );
 
-    @Query(value = "SELECT p.*, ST_Distance(p.location_geo, :location) as distance " +
-            "FROM places p " +
-            "WHERE p.is_active = true " +
-            "AND p.cuisine = :cuisine " +
-            "AND ST_DWithin(p.location_geo, :location, :radiusMeters) " +
-            "ORDER BY distance",
-            nativeQuery = true)
-    List<Place> findNearbyCuisineSpecific(
-            @Param("location") Point location,
-            @Param("cuisine") String cuisine,
-            @Param("radiusMeters") double radiusMeters
-    );
+    /**
+     * Search places by name (case-insensitive)
+     */
+    @Query("SELECT p FROM Place p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))")
+    List<Place> searchByName(@Param("name") String name);
 
-    @Query("SELECT p FROM Place p WHERE p.isActive = true " +
-            "AND LOWER(p.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
-    List<Place> searchByName(@Param("searchTerm") String searchTerm);
+    /**
+     * Find places by category
+     */
+    @Query("SELECT p FROM Place p WHERE LOWER(p.categories) LIKE LOWER(CONCAT('%', :category, '%'))")
+    List<Place> findByCategory(@Param("category") String category);
+
+    /**
+     * Get places within a radius
+     */
+    @Query(value = """
+        SELECT p.*
+        FROM places p
+        WHERE ST_DWithin(
+            p.location_geo,
+            ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+            :radius
+        )
+        AND p.rating_avg >= :minRating
+        ORDER BY p.rating_avg DESC, p.rating_count DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<Place> findTopRatedNearby(
+            @Param("lng") Double lng,
+            @Param("lat") Double lat,
+            @Param("radius") Double radius,
+            @Param("minRating") Double minRating,
+            @Param("limit") Integer limit
+    );
 }
